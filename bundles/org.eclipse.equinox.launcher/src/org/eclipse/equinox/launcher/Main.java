@@ -241,8 +241,8 @@ public class Main {
 
 	//for change detection in the base when running in shared install mode
 	private static final long NO_TIMESTAMP = -1;
-	private static final String CONFIG_INI_TIMESTAMP = "configIniTimestamp"; //$NON-NLS-1$
-	private static final String BASE_TIMESTAMPS = ".baseTimestamps"; //$NON-NLS-1$
+	private static final String BASE_TIMESTAMP_FILE_CONFIGINI = ".baseConfigIniTimestamp"; //$NON-NLS-1$
+	private static final String KEY_CONFIGINI_TIMESTAMP = "configIniTimestamp"; //$NON-NLS-1$
 	private static final String PROP_IGNORE_USER_CONFIGURATION = "eclipse.ignoreUserConfiguration"; //$NON-NLS-1$
 
 	/**
@@ -1870,16 +1870,16 @@ public class Main {
 	//Get the timestamp that has been remembered
 	private long getLastKnownConfigIniBaseTimestamp() {
 		if (debug)
-			System.out.println("Loading timestamp file from:\n\t " + getConfigurationLocation() + "   " + BASE_TIMESTAMPS); //$NON-NLS-1$ //$NON-NLS-2$
+			System.out.println("Loading timestamp file from:\n\t " + getConfigurationLocation() + "   " + BASE_TIMESTAMP_FILE_CONFIGINI); //$NON-NLS-1$ //$NON-NLS-2$
 		Properties result;
 		try {
-			result = load(getConfigurationLocation(), BASE_TIMESTAMPS);
+			result = load(getConfigurationLocation(), BASE_TIMESTAMP_FILE_CONFIGINI);
 		} catch (IOException e) {
 			if (debug)
 				System.out.println("\tNo timestamp file found"); //$NON-NLS-1$
 			return NO_TIMESTAMP;
 		}
-		String timestamp = result.getProperty(CONFIG_INI_TIMESTAMP);
+		String timestamp = result.getProperty(KEY_CONFIGINI_TIMESTAMP);
 		return Long.parseLong(timestamp);
 	}
 
