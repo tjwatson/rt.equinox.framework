@@ -1783,8 +1783,10 @@ public class Main {
 			}
 		}
 
-		// Now we know where the base configuration is supposed to be.  Go ahead and load  PASCAL _CHANGE THE COMMENT
-		// it and merge into the System properties.  Then, if cascaded, read the parent configuration
+		// Now we know where the base configuration is supposed to be.  Go ahead and load
+		// it and merge into the System properties.  Then, if cascaded, read the parent configuration.
+		// Note that in a cascaded situation, the user configuration may be ignored if the parent 
+		// configuration has changed since the execution. 
 		// Note that the parent may or may not be the same parent as we read above since the 
 		// base can define its parent.  The first parent we read was either defined by the user
 		// on the command line or was the one in the install dir.  
@@ -1797,6 +1799,7 @@ public class Main {
 		if (configuration != null && "false".equalsIgnoreCase(configuration.getProperty(PROP_CONFIG_CASCADED))) { //$NON-NLS-1$
 			System.getProperties().remove(PROP_SHARED_CONFIG_AREA);
 			configuration.remove(PROP_SHARED_CONFIG_AREA);
+			mergeProperties(System.getProperties(), configuration, null);
 		} else {
 			ensureAbsolute(PROP_SHARED_CONFIG_AREA);
 			URL sharedConfigURL = buildLocation(PROP_SHARED_CONFIG_AREA, null, ""); //$NON-NLS-1$
@@ -1809,10 +1812,13 @@ public class Main {
 				}
 			// if the parent location is different from the config location, read it too.
 			if (sharedConfigURL != null) {
-				if (sharedConfigURL.equals(getConfigurationLocation()))
-					// remove the property to show that we do not have a parent.
+				if (sharedConfigURL.equals(getConfigurationLocation())) {
+					//After all we are not in a shared configuration setup.
+					// - remove the property to show that we do not have a parent 
+					// - merge configuration with the system properties 
 					System.getProperties().remove(PROP_SHARED_CONFIG_AREA);
-				else {
+					mergeProperties(System.getProperties(), configuration, null);
+				} else {
 					// if the parent we are about to read is the same as the base config we read above,
 					// just reuse the base
 					Properties sharedConfiguration = baseConfiguration;
