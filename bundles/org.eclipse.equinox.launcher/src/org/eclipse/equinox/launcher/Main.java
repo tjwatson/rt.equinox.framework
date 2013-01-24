@@ -1786,7 +1786,7 @@ public class Main {
 		// Now we know where the base configuration is supposed to be.  Go ahead and load
 		// it and merge into the System properties.  Then, if cascaded, read the parent configuration.
 		// Note that in a cascaded situation, the user configuration may be ignored if the parent 
-		// configuration has changed since the execution. 
+		// configuration has changed since the user configuration has been written. 
 		// Note that the parent may or may not be the same parent as we read above since the 
 		// base can define its parent.  The first parent we read was either defined by the user
 		// on the command line or was the one in the install dir.  
@@ -1874,7 +1874,7 @@ public class Main {
 		return connection.getLastModified();
 	}
 
-	//Get the timestamp that has been remembered
+	//Get the timestamp that has been remembered. The BASE_TIMESTAMP_FILE_CONFIGINI is written at provisioning time by fwkAdmin.
 	private long getLastKnownConfigIniBaseTimestamp() {
 		if (debug)
 			System.out.println("Loading timestamp file from:\n\t " + getConfigurationLocation() + "   " + BASE_TIMESTAMP_FILE_CONFIGINI); //$NON-NLS-1$ //$NON-NLS-2$
