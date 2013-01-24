@@ -9,6 +9,7 @@
  *     IBM Corporation - initial API and implementation
  *     Anton Leherbauer (Wind River Systems) - bug 301226
  *     Red Hat Inc. - bug 373640
+ *     Ericsson AB (Pascal Rapicault) - bug 304132
  *******************************************************************************/
 package org.eclipse.equinox.launcher;
 
