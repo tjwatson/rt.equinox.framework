@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2006, 2012 IBM Corporation and others.
+ * Copyright (c) 2006, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -19,6 +19,7 @@ import org.eclipse.osgi.internal.hookregistry.ClassLoaderHook;
 import org.eclipse.osgi.internal.loader.classpath.*;
 import org.eclipse.osgi.storage.BundleInfo.Generation;
 import org.eclipse.osgi.storage.bundlefile.BundleFile;
+import org.osgi.framework.wiring.BundleRevision;
 
 public class DevClassLoadingHook extends ClassLoaderHook implements KeyedElement {
 	public static final String KEY = DevClassLoadingHook.class.getName();
@@ -42,6 +43,12 @@ public class DevClassLoadingHook extends ClassLoaderHook implements KeyedElement
 			return false; // this source has already had its dev classpath entries added.
 		boolean result = false;
 		for (int i = 0; i < devClassPath.length; i++) {
+			BundleFile bundleFile = sourceGeneration.getBundleFile();
+			// If the bundle file is a directory and contains the classpath as an
+			// entry, don't add a classpath entry. The bundle file will do the work
+			// itself. See bug 411877.
+			if (!isClasspathEntryRequired(cp, sourceGeneration, devClassPath[i]))
+				continue;
 			if (hostmanager.addClassPathEntry(cpEntries, devClassPath[i], hostmanager, sourceGeneration))
 				result = true;
 			else {
@@ -49,7 +56,7 @@ public class DevClassLoadingHook extends ClassLoaderHook implements KeyedElement
 				boolean fromFragment = devCP.endsWith(FRAGMENT);
 				if (!fromFragment && devCP.indexOf("..") >= 0) { //$NON-NLS-1$
 					// if in dev mode, try using cp as a relative path from the base bundle file
-					File base = sourceGeneration.getBundleFile().getBaseFile();
+					File base = bundleFile.getBaseFile();
 					if (base.isDirectory()) {
 						// this is only supported for directory bundles
 						ClasspathEntry entry = hostmanager.getExternalClassPath(new File(base, devCP).getAbsolutePath(), sourceGeneration);
@@ -108,5 +115,20 @@ public class DevClassLoadingHook extends ClassLoaderHook implements KeyedElement
 
 	public int getKeyHashCode() {
 		return HASHCODE;
+	}
+
+	private boolean isClasspathEntryRequired(String classpath, Generation generation, String devClasspath) {
+		if (!generation.getBundleFile().getBaseFile().isDirectory())
+			return true;
+		if (devClasspath.contains("..")) //$NON-NLS-1$
+			return true;
+		if (!isPathOnDevelopmentClasspath(classpath, generation) && !DevBundleFileWrapper.isRoot(classpath))
+			return true;
+		return false;
+	}
+
+	private boolean isPathOnDevelopmentClasspath(String path, Generation generation) {
+		BundleRevision revision = generation.getRevision();
+		return DevBundleFileWrapper.findMatchingPathOnDevelopmentClasspath(path, configuration.getDevClassPath(revision.getSymbolicName()), generation.getBundleFile()) != null;
 	}
 }

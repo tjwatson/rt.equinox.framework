@@ -51,11 +51,6 @@ public class BundleFileWrapper extends BundleFile {
 	}
 
 	@Override
-	public Enumeration<String> getEntryPaths(String path) {
-		return bundleFile.getEntryPaths(path);
-	}
-
-	@Override
 	public Enumeration<String> getEntryPaths(String path, boolean recurse) {
 		return bundleFile.getEntryPaths(path, recurse);
 	}

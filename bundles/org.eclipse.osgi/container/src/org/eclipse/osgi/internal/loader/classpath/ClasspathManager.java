@@ -16,8 +16,8 @@ import java.net.URL;
 import java.util.*;
 import java.util.jar.Attributes;
 import java.util.jar.Manifest;
-import org.eclipse.osgi.container.*;
 import org.eclipse.osgi.container.ModuleContainerAdaptor.ContainerEvent;
+import org.eclipse.osgi.container.*;
 import org.eclipse.osgi.container.namespaces.EquinoxModuleDataNamespace;
 import org.eclipse.osgi.framework.util.ArrayMap;
 import org.eclipse.osgi.internal.debug.Debug;
@@ -33,6 +33,8 @@ import org.eclipse.osgi.storage.bundlefile.BundleFile;
 import org.eclipse.osgi.util.NLS;
 import org.osgi.framework.BundleException;
 import org.osgi.framework.namespace.HostNamespace;
+import org.osgi.resource.Capability;
+import org.osgi.resource.Resource;
 
 /**
  * A helper class for <code>BaseClassLoader</code> implementations.  This class will keep track of 
@@ -84,10 +86,10 @@ public class ClasspathManager {
 		this.entries = buildClasspath(cp, this, this.generation);
 	}
 
-	private static String[] getClassPath(ModuleRevision revision) {
-		List<ModuleCapability> moduleDatas = revision.getModuleCapabilities(EquinoxModuleDataNamespace.MODULE_DATA_NAMESPACE);
+	public static String[] getClassPath(Resource resource) {
+		List<Capability> capabilities = resource.getCapabilities(EquinoxModuleDataNamespace.MODULE_DATA_NAMESPACE);
 		@SuppressWarnings("unchecked")
-		List<String> cp = moduleDatas.isEmpty() ? null : (List<String>) moduleDatas.get(0).getAttributes().get(EquinoxModuleDataNamespace.CAPABILITY_CLASSPATH);
+		List<String> cp = capabilities.isEmpty() ? null : (List<String>) capabilities.get(0).getAttributes().get(EquinoxModuleDataNamespace.CAPABILITY_CLASSPATH);
 		return cp == null ? DEFAULT_CLASSPATH : cp.toArray(new String[cp.size()]);
 	}
 

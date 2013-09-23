@@ -18,8 +18,7 @@ import java.util.*;
 import org.eclipse.osgi.framework.log.FrameworkLogEntry;
 import org.eclipse.osgi.internal.framework.EquinoxConfiguration;
 import org.eclipse.osgi.internal.framework.EquinoxContainer;
-import org.eclipse.osgi.internal.hooks.DevClassLoadingHook;
-import org.eclipse.osgi.internal.hooks.EclipseLazyStarter;
+import org.eclipse.osgi.internal.hooks.*;
 import org.eclipse.osgi.internal.signedcontent.SignedBundleHook;
 import org.eclipse.osgi.internal.weaving.WeavingHookConfigurator;
 import org.eclipse.osgi.util.ManifestElement;
@@ -99,11 +98,14 @@ public final class HookRegistry {
 		mergeFileHookConfigurators(configurators, errors);
 		mergePropertyHookConfigurators(configurators);
 		synchronized (this) {
-			addClassLoaderHook(new DevClassLoadingHook(container.getConfiguration()));
+			EquinoxConfiguration configuration = container.getConfiguration();
+			addClassLoaderHook(new DevClassLoadingHook(configuration));
 			addClassLoaderHook(new EclipseLazyStarter(container));
 			addClassLoaderHook(new WeavingHookConfigurator(container));
 			configurators.add(SignedBundleHook.class.getName());
 			loadConfigurators(configurators, errors);
+			if (configuration.inDevelopmentMode())
+				addBundleFileWrapperFactoryHook(new DevBundleFileWrapperFactoryHook(configuration));
 			// set to read-only
 			initialized = true;
 		}
