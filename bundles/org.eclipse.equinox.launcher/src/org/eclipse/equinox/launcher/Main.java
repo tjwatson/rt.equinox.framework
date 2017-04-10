@@ -18,10 +18,13 @@ package org.eclipse.equinox.launcher;
 import java.io.*;
 import java.lang.module.*;
 import java.lang.module.ModuleDescriptor.Builder;
-import java.lang.reflect.*;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.net.*;
+import java.nio.file.*;
 import java.security.*;
 import java.util.*;
+import java.util.concurrent.TimeUnit;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 import org.eclipse.equinox.internal.launcher.Constants;
@@ -648,7 +651,7 @@ public class Main {
 		} else if (PARENT_CLASSLOADER_CURRENT.equalsIgnoreCase(type))
 			parent = this.getClass().getClassLoader();
 		URLClassLoader loader = new StartupClassLoader(bootPath, parent);
-		createLayer(loader);
+		createLayer(bootPath, loader);
 		Class<?> clazz = loader.loadClass(STARTER);
 		Method method = clazz.getDeclaredMethod("run", String[].class, Runnable.class); //$NON-NLS-1$
 		try {
@@ -664,94 +667,12 @@ public class Main {
 		}
 	}
 
-	// This is just hard coding the equinox packages for now
-	// should read the manifest and parse it instead
-	static final List<String> systemBundlePackages = Arrays.asList(new String[] {"org.osgi.dto", //$NON-NLS-1$
-			"org.osgi.framework", //$NON-NLS-1$
-			"org.osgi.framework.dto", //$NON-NLS-1$
-			"org.osgi.framework.hooks.bundle", //$NON-NLS-1$
-			"org.osgi.framework.hooks.resolver", //$NON-NLS-1$
-			"org.osgi.framework.hooks.service", //$NON-NLS-1$
-			"org.osgi.framework.hooks.weaving", //$NON-NLS-1$
-			"org.osgi.framework.launch", //$NON-NLS-1$
-			"org.osgi.framework.namespace", //$NON-NLS-1$
-			"org.osgi.framework.startlevel", //$NON-NLS-1$
-			"org.osgi.framework.startlevel.dto", //$NON-NLS-1$
-			"org.osgi.framework.wiring", //$NON-NLS-1$
-			"org.osgi.framework.wiring.dto", //$NON-NLS-1$
-			"org.osgi.resource", //$NON-NLS-1$
-			"org.osgi.resource.dto", //$NON-NLS-1$
-			"org.osgi.service.condpermadmin", //$NON-NLS-1$
-			"org.osgi.service.log", //$NON-NLS-1$
-			"org.osgi.service.packageadmin", //$NON-NLS-1$
-			"org.osgi.service.permissionadmin", //$NON-NLS-1$
-			"org.osgi.service.resolver", //$NON-NLS-1$
-			"org.osgi.service.startlevel", //$NON-NLS-1$
-			"org.osgi.service.url", //$NON-NLS-1$
-			"org.osgi.util.tracker", //$NON-NLS-1$
-			"org.apache.felix.resolver", //$NON-NLS-1$
-			"org.apache.felix.resolver.util", //$NON-NLS-1$
-			"org.eclipse.core.runtime.adaptor", //$NON-NLS-1$
-			"org.eclipse.core.runtime.internal.adaptor", //$NON-NLS-1$
-			"org.eclipse.equinox.log", //$NON-NLS-1$
-			"org.eclipse.osgi.container", //$NON-NLS-1$
-			"org.eclipse.osgi.container.builders", //$NON-NLS-1$
-			"org.eclipse.osgi.container.namespaces", //$NON-NLS-1$
-			"org.eclipse.osgi.framework.console", //$NON-NLS-1$
-			"org.eclipse.osgi.framework.eventmgr", //$NON-NLS-1$
-			"org.eclipse.osgi.framework.internal.reliablefile", //$NON-NLS-1$
-			"org.eclipse.osgi.framework.log", //$NON-NLS-1$
-			"org.eclipse.osgi.framework.util", //$NON-NLS-1$
-			"org.eclipse.osgi.internal.container", //$NON-NLS-1$
-			"org.eclipse.osgi.internal.debug", //$NON-NLS-1$
-			"org.eclipse.osgi.internal.framework", //$NON-NLS-1$
-			"org.eclipse.osgi.internal.framework.legacy", //$NON-NLS-1$
-			"org.eclipse.osgi.internal.hookregistry", //$NON-NLS-1$
-			"org.eclipse.osgi.internal.hooks", //$NON-NLS-1$
-			"org.eclipse.osgi.internal.loader", //$NON-NLS-1$
-			"org.eclipse.osgi.internal.loader.buddy", //$NON-NLS-1$
-			"org.eclipse.osgi.internal.loader.classpath", //$NON-NLS-1$
-			"org.eclipse.osgi.internal.loader.sources", //$NON-NLS-1$
-			"org.eclipse.osgi.internal.location", //$NON-NLS-1$
-			"org.eclipse.osgi.internal.log", //$NON-NLS-1$
-			"org.eclipse.osgi.internal.messages", //$NON-NLS-1$
-			"org.eclipse.osgi.internal.permadmin", //$NON-NLS-1$
-			"org.eclipse.osgi.internal.provisional.service.security", //$NON-NLS-1$
-			"org.eclipse.osgi.internal.provisional.verifier", //$NON-NLS-1$
-			"org.eclipse.osgi.internal.service.security", //$NON-NLS-1$
-			"org.eclipse.osgi.internal.serviceregistry", //$NON-NLS-1$
-			"org.eclipse.osgi.internal.signedcontent", //$NON-NLS-1$
-			"org.eclipse.osgi.internal.url", //$NON-NLS-1$
-			"org.eclipse.osgi.internal.util", //$NON-NLS-1$
-			"org.eclipse.osgi.internal.weaving", //$NON-NLS-1$
-			"org.eclipse.osgi.launch", //$NON-NLS-1$
-			"org.eclipse.osgi.report.resolution", //$NON-NLS-1$
-			"org.eclipse.osgi.service.datalocation", //$NON-NLS-1$
-			"org.eclipse.osgi.service.debug", //$NON-NLS-1$
-			"org.eclipse.osgi.service.environment", //$NON-NLS-1$
-			"org.eclipse.osgi.service.localization", //$NON-NLS-1$
-			"org.eclipse.osgi.service.pluginconversion", //$NON-NLS-1$
-			"org.eclipse.osgi.service.resolver", //$NON-NLS-1$
-			"org.eclipse.osgi.service.runnable", //$NON-NLS-1$
-			"org.eclipse.osgi.service.security", //$NON-NLS-1$
-			"org.eclipse.osgi.service.urlconversion", //$NON-NLS-1$
-			"org.eclipse.osgi.signedcontent", //$NON-NLS-1$
-			"org.eclipse.osgi.storage", //$NON-NLS-1$
-			"org.eclipse.osgi.storage.bundlefile", //$NON-NLS-1$
-			"org.eclipse.osgi.storage.url", //$NON-NLS-1$
-			"org.eclipse.osgi.storage.url.bundleentry", //$NON-NLS-1$
-			"org.eclipse.osgi.storage.url.bundleresource", //$NON-NLS-1$
-			"org.eclipse.osgi.storage.url.reference", //$NON-NLS-1$
-			"org.eclipse.osgi.storagemanager", //$NON-NLS-1$
-			"org.eclipse.osgi.util", //$NON-NLS-1$
-			"osgi.jpms.internal.layer", //$NON-NLS-1$
-			"osgi.jpms.layer" //$NON-NLS-1$
-	});
-
 	static final String SYSTEM_BUNDLE_NAME = "system.bundle"; //$NON-NLS-1$
 
-	private void createLayer(URLClassLoader loader) {
-		Set<Module> bootModules = Layer.boot().modules();
+	private void createLayer(URL[] bootPath, URLClassLoader loader) {
+		Set<Module> bootModules = ModuleLayer.boot().modules();
+
+		List<String> systemBundlePackages = discoverPackages(bootPath);
 
 		Builder builder = ModuleDescriptor.newOpenModule(SYSTEM_BUNDLE_NAME);
 		for (Module module : bootModules) {
@@ -784,10 +705,81 @@ public class Main {
 			}
 		};
 
-		Configuration config = Layer.boot().configuration().resolve(finder, ModuleFinder.of(), Set.of(SYSTEM_BUNDLE_NAME));
-		Layer.boot().defineModules(config, (name) -> {
+		Configuration config = ModuleLayer.boot().configuration().resolve(finder, ModuleFinder.of(), Set.of(SYSTEM_BUNDLE_NAME));
+		ModuleLayer.boot().defineModules(config, (name) -> {
 			return loader;
 		});
+	}
+
+	private List<String> discoverPackages(URL[] bootPath) {
+		long startTime = System.nanoTime();
+		TreeSet<String> packages = new TreeSet<>();
+		for (URL url : bootPath) {
+			Path p;
+			try {
+				p = Paths.get(url.toURI());
+			} catch (URISyntaxException e) {
+				try {
+					String encode = URLEncoder.encode(url.toExternalForm(), "UTF-8"); //$NON-NLS-1$
+					p = Paths.get(new URI(encode));
+				} catch (UnsupportedEncodingException | URISyntaxException unsupported) {
+					// We are toast now
+					throw new RuntimeException(unsupported);
+				}
+			}
+			addPackages(p.toFile(), packages);
+		}
+		System.out.println("Time to discover packages: " + TimeUnit.MILLISECONDS.convert((System.nanoTime() - startTime), TimeUnit.NANOSECONDS));
+		return new ArrayList<>(packages);
+	}
+
+	private void addPackages(File file, TreeSet<String> packages) {
+		long startTime = System.nanoTime();
+		try {
+			if (file.isFile()) {
+				ZipFile zip = new ZipFile(file);
+				try {
+					zip.stream().forEach((e) -> addPackage(e.getName(), packages));
+				} finally {
+					zip.close();
+				}
+			} else {
+				Path fPath = file.toPath();
+				Files.find(fPath, 999, (p, bfa) -> bfa.isRegularFile() && p.getFileName().toString().endsWith(".class")). //$NON-NLS-1$
+						forEach((p) -> addPackage(fPath, p, packages));
+			}
+		} catch (IOException e) {
+			log(e);
+		}
+		System.out.println("Time to discover packages in: " + file + " " + TimeUnit.MILLISECONDS.convert((System.nanoTime() - startTime), TimeUnit.NANOSECONDS));
+	}
+
+	private void addPackage(Path fPath, Path p, Set<String> packages) {
+		p = p.subpath(fPath.getNameCount(), p.getNameCount());
+		StringBuffer pName = new StringBuffer();
+		for (Path component : p) {
+			if (!p.getFileName().equals(component)) {
+				if (pName.length() > 0) {
+					pName.append('.');
+				}
+				pName.append(component.getFileName().toString());
+			}
+		}
+		packages.add(pName.toString());
+	}
+
+	private void addPackage(String path, Set<String> packages) {
+		if (path.endsWith(".class")) { //$NON-NLS-1$
+			int beginIndex = 0;
+			if (path.startsWith("/")) { //$NON-NLS-1$
+				beginIndex = 1;
+			}
+			int endIndex = path.lastIndexOf('/');
+			if (endIndex >= 0) {
+				String pName = path.substring(beginIndex, endIndex);
+				packages.add(pName.replace('/', '.'));
+			}
+		}
 	}
 
 	/**
