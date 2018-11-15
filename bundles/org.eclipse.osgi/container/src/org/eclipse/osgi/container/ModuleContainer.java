@@ -535,17 +535,18 @@ public final class ModuleContainer implements DebugOptionsListener {
 
 		ModuleResolutionReport report = moduleResolver.resolveDelta(triggerRevisions, triggersMandatory, unresolved, wiringClone, moduleDatabase);
 		Map<Resource, List<Wire>> resolutionResult = report.getResolutionResult();
-		Map<ModuleRevision, ModuleWiring> deltaWiring = resolutionResult == null ? Collections.<ModuleRevision, ModuleWiring> emptyMap() : moduleResolver.generateDelta(resolutionResult, wiringClone);
-		if (deltaWiring.isEmpty())
+		if (resolutionResult.isEmpty()) {
 			return report; // nothing to do
+		}
 
 		Collection<Module> modulesResolved = new ArrayList<>();
-		for (ModuleRevision deltaRevision : deltaWiring.keySet()) {
+		for (Resource resource : resolutionResult.keySet()) {
+			ModuleRevision deltaRevision = (ModuleRevision) resource;
 			if (!wiringClone.containsKey(deltaRevision))
 				modulesResolved.add(deltaRevision.getRevisions().getModule());
 		}
 
-		return applyDelta(deltaWiring, modulesResolved, triggers, timestamp, restartTriggers) ? report : null;
+		return applyDelta(resolutionResult, modulesResolved, triggers, timestamp, restartTriggers, Collections.<ModuleRevision, ModuleWiring> emptyMap()) ? report : null;
 	}
 
 	/**
@@ -556,13 +557,14 @@ public final class ModuleContainer implements DebugOptionsListener {
 	 * a dynamic wire could not be established.
 	 */
 	public ModuleWire resolveDynamic(String dynamicPkgName, ModuleRevision revision) {
-		ModuleWire result;
-		Map<ModuleRevision, ModuleWiring> deltaWiring;
+
 		Collection<Module> modulesResolved;
 		long timestamp;
-		try (ResolutionLock resolutionLock = new ResolutionLock(MAX_RESOLUTION_PERMITS)) {
+		Map<Resource, List<Wire>> resolutionResult = null;
+		Map<ModuleRevision, ModuleWiring> wiringCopy = null;
+		try (ResolutionLock resolutionLock = new ResolutionLock(1)) {
 			do {
-				result = null;
+				wiringCopy = null;
 				Map<ModuleRevision, ModuleWiring> wiringClone = null;
 				List<DynamicModuleRequirement> dynamicReqs = null;
 				Collection<ModuleRevision> unresolved = new ArrayList<>();
@@ -578,9 +580,10 @@ public final class ModuleContainer implements DebugOptionsListener {
 						return null;
 					}
 					// need to check that another thread has not done the work already
-					result = findExistingDynamicWire(revision.getWiring(), dynamicPkgName);
-					if (result != null) {
-						return result;
+					ModuleWire existing = findExistingDynamicWire(revision.getWiring(), dynamicPkgName);
+					if (existing != null) {
+						return existing;
+
 					}
 					dynamicReqs = getDynamicRequirements(dynamicPkgName, revision);
 					if (dynamicReqs.isEmpty()) {
@@ -589,6 +592,7 @@ public final class ModuleContainer implements DebugOptionsListener {
 						return null;
 					}
 					timestamp = moduleDatabase.getRevisionsTimestamp();
+					wiringCopy = moduleDatabase.getWiringsCopy();
 					wiringClone = moduleDatabase.getWiringsClone();
 					Collection<Module> allModules = moduleDatabase.getModules();
 					for (Module module : allModules) {
@@ -600,13 +604,11 @@ public final class ModuleContainer implements DebugOptionsListener {
 					moduleDatabase.readUnlock();
 				}
 
-				deltaWiring = null;
 				boolean foundCandidates = false;
 				for (DynamicModuleRequirement dynamicReq : dynamicReqs) {
 					ModuleResolutionReport report = moduleResolver.resolveDynamicDelta(dynamicReq, unresolved, wiringClone, moduleDatabase);
-					Map<Resource, List<Wire>> resolutionResult = report.getResolutionResult();
-					deltaWiring = resolutionResult == null ? Collections.<ModuleRevision, ModuleWiring> emptyMap() : moduleResolver.generateDelta(resolutionResult, wiringClone);
-					if (deltaWiring.get(revision) != null) {
+					resolutionResult = report.getResolutionResult();
+					if (resolutionResult.get(revision) != null) {
 						break;
 					}
 					// Did not establish a valid wire.
@@ -624,7 +626,7 @@ public final class ModuleContainer implements DebugOptionsListener {
 						foundCandidates |= !isMissingCapability;
 					}
 				}
-				if (deltaWiring == null || deltaWiring.get(revision) == null) {
+				if (resolutionResult == null || resolutionResult.get(revision) == null) {
 					if (!foundCandidates) {
 						ModuleWiring wiring = revision.getWiring();
 						if (wiring != null) {
@@ -636,20 +638,19 @@ public final class ModuleContainer implements DebugOptionsListener {
 				}
 
 				modulesResolved = new ArrayList<>();
-				for (ModuleRevision deltaRevision : deltaWiring.keySet()) {
+				for (Resource resource : resolutionResult.keySet()) {
+					ModuleRevision deltaRevision = (ModuleRevision) resource;
 					if (!wiringClone.containsKey(deltaRevision))
 						modulesResolved.add(deltaRevision.getRevisions().getModule());
 				}
 
-				// Save the result
-				ModuleWiring wiring = deltaWiring.get(revision);
-				result = findExistingDynamicWire(wiring, dynamicPkgName);
-			} while (!applyDelta(deltaWiring, modulesResolved, Collections.<Module> emptyList(), timestamp, false));
+			} while (!applyDelta(resolutionResult, modulesResolved, Collections.<Module> emptyList(), timestamp, false, wiringCopy));
 		} catch (ResolutionLockException e) {
 			return null;
 		}
 
-		return result;
+		ModuleWiring wiring = revision.getWiring();
+		return wiring == null ? null : findExistingDynamicWire(wiring, dynamicPkgName);
 	}
 
 	private ModuleWire findExistingDynamicWire(ModuleWiring wiring, String dynamicPkgName) {
@@ -722,46 +723,56 @@ public final class ModuleContainer implements DebugOptionsListener {
 		}
 	}
 
-	private boolean applyDelta(Map<ModuleRevision, ModuleWiring> deltaWiring, Collection<Module> modulesResolved, Collection<Module> triggers, long timestamp, boolean restartTriggers) {
+	private boolean applyDelta(Map<Resource, List<Wire>> resolutionResult, Collection<Module> modulesResolved, Collection<Module> triggers, long timestamp, boolean restartTriggers, Map<ModuleRevision, ModuleWiring> snapShotWiring) {
 		List<Module> modulesLocked = new ArrayList<>(modulesResolved.size());
 		// now attempt to apply the delta
 		try {
-			// Acquire the necessary RESOLVED state change lock.
-			// Note this is done while holding a global lock to avoid multiple threads trying to compete over
-			// locking multiple modules; otherwise out of order locks between modules can happen
-			// NOTE this MUST be done outside of holding the moduleDatabase lock also to avoid
-			// introducing out of order locks between the bundle state change lock and the moduleDatabase
-			// lock.
-			_bundleStateLock.lock();
-			try {
-				for (Module module : modulesResolved) {
-					try {
-						// avoid grabbing the lock if the timestamp has changed
-						if (timestamp != moduleDatabase.getRevisionsTimestamp()) {
-							return false; // need to try again
+			if (!modulesResolved.isEmpty()) {
+				// Acquire the necessary RESOLVED state change lock.
+				// Note this is done while holding a global lock to avoid multiple threads trying to compete over
+				// locking multiple modules; otherwise out of order locks between modules can happen
+				// NOTE this MUST be done outside of holding the moduleDatabase lock also to avoid
+				// introducing out of order locks between the bundle state change lock and the moduleDatabase
+				// lock.
+				_bundleStateLock.lock();
+				try {
+					for (Module module : modulesResolved) {
+						try {
+							// avoid grabbing the lock if the timestamp has changed
+							if (timestamp != moduleDatabase.getRevisionsTimestamp()) {
+								return false; // need to try again
+							}
+							module.lockStateChange(ModuleEvent.RESOLVED);
+							modulesLocked.add(module);
+						} catch (BundleException e) {
+							// before throwing an exception here, see if the timestamp has changed
+							if (timestamp != moduleDatabase.getRevisionsTimestamp()) {
+								return false; // need to try again
+							}
+							// TODO throw some appropriate exception
+							throw new IllegalStateException(Msg.ModuleContainer_StateLockError, e);
 						}
-						module.lockStateChange(ModuleEvent.RESOLVED);
-						modulesLocked.add(module);
-					} catch (BundleException e) {
-						// before throwing an exception here, see if the timestamp has changed
-						if (timestamp != moduleDatabase.getRevisionsTimestamp()) {
-							return false; // need to try again
-						}
-						// TODO throw some appropriate exception
-						throw new IllegalStateException(Msg.ModuleContainer_StateLockError, e);
 					}
+				} finally {
+					_bundleStateLock.unlock();
 				}
-			} finally {
-				_bundleStateLock.unlock();
 			}
-
 			Map<ModuleWiring, Collection<ModuleRevision>> hostsWithDynamicFrags = new HashMap<>(0);
 			moduleDatabase.writeLock();
 			try {
-				if (timestamp != moduleDatabase.getRevisionsTimestamp())
-					return false; // need to try again
+				long currentTimestamp = moduleDatabase.getRevisionsTimestamp();
+				if (timestamp != currentTimestamp) {
+					if (!modulesResolved.isEmpty()) {
+						return false; // need to try again
+					}
+					if (!allowDynamicWire(timestamp, resolutionResult, snapShotWiring)) {
+						return false;
+					}
+				}
 
 				Map<ModuleRevision, ModuleWiring> wiringCopy = moduleDatabase.getWiringsCopy();
+				Map<ModuleRevision, ModuleWiring> deltaWiring = moduleResolver.generateDelta(resolutionResult, wiringCopy);
+
 				for (Map.Entry<ModuleRevision, ModuleWiring> deltaEntry : deltaWiring.entrySet()) {
 					ModuleWiring current = wiringCopy.get(deltaEntry.getKey());
 					if (current != null) {
@@ -836,6 +847,44 @@ public final class ModuleContainer implements DebugOptionsListener {
 				}
 			}
 		}
+		return true;
+	}
+
+	private boolean allowDynamicWire(long timestamp, Map<Resource, List<Wire>> resolutionResult, Map<ModuleRevision, ModuleWiring> snapShotWiring) {
+		if (resolutionResult.size() != 1) {
+			// dynamic imports that resolve no other bundles should only have one entry
+			return false;
+		}
+		Map.Entry<Resource, List<Wire>> resultEntry = resolutionResult.entrySet().iterator().next();
+		if (resultEntry.getValue().size() != 1) {
+			// dynamic import resolution will only resolve a single wire
+			return false;
+		}
+		ModuleWiring requirerWiring = moduleDatabase.getWiring((ModuleRevision) resultEntry.getKey());
+		if (requirerWiring == null || requirerWiring != snapShotWiring.get(resultEntry.getKey())) {
+			// the requiring module must be already resolved for dynamic import and
+			// it must be the same wiring as when we took the snapshot
+			return false;
+		}
+
+		Wire dynamicWire = resultEntry.getValue().get(0);
+		if (!PackageNamespace.RESOLUTION_DYNAMIC.equals(dynamicWire.getRequirement().getDirectives().get(Namespace.REQUIREMENT_RESOLUTION_DIRECTIVE))) {
+			// the requirement is not dynamic
+			return false;
+		}
+
+		ModuleWiring providerWiring = moduleDatabase.getWiring((ModuleRevision) dynamicWire.getProvider());
+		if (providerWiring == null || providerWiring != snapShotWiring.get(dynamicWire.getProvider())) {
+			// the provider module must be already resolved for dynamic import and
+			// it must be the same wiring as when we took the snapshot
+			return false;
+		}
+
+		if (null != findExistingDynamicWire(requirerWiring, (String) dynamicWire.getCapability().getAttributes().get(PackageNamespace.PACKAGE_NAMESPACE))) {
+			// another thread won
+			return false;
+		}
+		// ok we can apply this dynamic wire
 		return true;
 	}
 
