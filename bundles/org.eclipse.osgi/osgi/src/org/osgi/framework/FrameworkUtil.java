@@ -1,5 +1,5 @@
 /*
- * Copyright (c) OSGi Alliance (2005, 2016). All Rights Reserved.
+ * Copyright (c) OSGi Alliance (2005, 2018). All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,16 +16,28 @@
 
 package org.osgi.framework;
 
+import static java.lang.invoke.MethodHandles.publicLookup;
+
+import java.lang.invoke.MethodHandle;
+import java.lang.reflect.AccessibleObject;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 import java.security.AccessController;
 import java.security.PrivilegedAction;
+import java.util.AbstractMap;
 import java.util.ArrayList;
-import java.util.Collections;
+import java.util.Collection;
+import java.util.Dictionary;
+import java.util.Enumeration;
 import java.util.Iterator;
 import java.util.List;
-import java.util.ServiceLoader;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.CopyOnWriteArraySet;
+
 import javax.security.auth.x500.X500Principal;
 import org.eclipse.osgi.internal.framework.FilterImpl;
-import org.eclipse.osgi.internal.hookregistry.FrameworkUtilHelper;
 
 /**
  * Framework Utility class.
@@ -185,26 +197,6 @@ public class FrameworkUtil {
 		return DNChainMatching.match(matchPattern, dnChain);
 	}
 
-	private final static List<FrameworkUtilHelper> helpers;
-	static {
-		List<FrameworkUtilHelper> l = new ArrayList<>();
-		try {
-			ServiceLoader<FrameworkUtilHelper> helperLoader = AccessController.doPrivileged(new PrivilegedAction<ServiceLoader<FrameworkUtilHelper>>() {
-				@Override
-				public ServiceLoader<FrameworkUtilHelper> run() {
-					return ServiceLoader.load(FrameworkUtilHelper.class, FrameworkUtilHelper.class.getClassLoader());
-				}
-			});
-			for (Iterator<FrameworkUtilHelper> iHelpers = helperLoader.iterator(); iHelpers.hasNext();) {
-				l.add(iHelpers.next());
-			}
-		} catch (Throwable t) {
-			// should not fail out of static initializers
-			t.printStackTrace();
-		}
-		helpers = Collections.unmodifiableList(l);
-	}
-
 	/**
 	 * Return a {@code Bundle} for the specified bundle class. The returned
 	 * {@code Bundle} is the bundle associated with the bundle class loader
@@ -229,13 +221,61 @@ public class FrameworkUtil {
 			return ((BundleReference) cl).getBundle();
 		}
 
-		for (FrameworkUtilHelper helper : helpers) {
+		for (Helper helper : helpers) {
 			Bundle b = helper.getBundle(classFromBundle);
 			if (b != null) {
 				return b;
 			}
 		}
 		return null;
+	}
+
+	static private final Set<Helper> helpers = new CopyOnWriteArraySet<>();
+
+	/**
+	 * Adds a {@link Helper} instance to the set of helpers. The {@code Helper}
+	 * instance is used by the {@code FrameworkUtil} class to provide
+	 * alternative return values for specific {@code FrameworkUtil} methods.
+	 * 
+	 * @param helper the helper to add
+	 * @see Helper
+	 * @since 1.10
+	 */
+	public static void addHelper(Helper helper) {
+		helpers.add(helper);
+	}
+
+	/**
+	 * Removes a {@link Helper} instance from the set of helpers.
+	 * 
+	 * @param helper the helper to remove
+	 * @since 1.10
+	 */
+	public static void removeHelper(Helper helper) {
+		helpers.remove(helper);
+	}
+
+	/**
+	 * A helper for the {@link FrameworkUtil} class. This helper provides
+	 * alternative implementations for methods on {@link FrameworkUtil}.
+	 * 
+	 * @since 1.10
+	 */
+	static public interface Helper {
+		/**
+		 * Return a {@code Bundle} associated with the specified class.
+		 * <p>
+		 * This helper method is called by
+		 * {@link FrameworkUtil#getBundle(Class)} if the standard implementation
+		 * of {@code FrameworkUtil} cannot find the bundle.
+		 * 
+		 * @param classFromBundle A class associated with a bundle
+		 * @return A {@code Bundle} for the specified class or {@code null} if
+		 *         the specified class is not from a bundle.
+		 */
+		default Bundle getBundle(Class< ? > classFromBundle) {
+			return null;
+		}
 	}
 
 	/**

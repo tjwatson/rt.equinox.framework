@@ -44,6 +44,7 @@ import org.osgi.framework.Bundle;
 import org.osgi.framework.BundleContext;
 import org.osgi.framework.BundleException;
 import org.osgi.framework.Constants;
+import org.osgi.framework.connect.ConnectFactory;
 import org.osgi.service.packageadmin.PackageAdmin;
 import org.osgi.service.startlevel.StartLevel;
 import org.osgi.util.tracker.ServiceTracker;
@@ -53,6 +54,7 @@ public class EquinoxContainer implements ThreadFactory, Runnable {
 	public static final String NAME = "org.eclipse.osgi"; //$NON-NLS-1$
 	static final SecureAction secureAction = AccessController.doPrivileged(SecureAction.createSecureAction());
 
+	private final ConnectFactory connectFactory;
 	private final EquinoxConfiguration equinoxConfig;
 	private final EquinoxLogServices logServices;
 	private final Storage storage;
@@ -75,7 +77,7 @@ public class EquinoxContainer implements ThreadFactory, Runnable {
 	private ScheduledExecutorService executor;
 	private StorageSaver storageSaver;
 
-	public EquinoxContainer(Map<String, ?> configuration) {
+	public EquinoxContainer(Map<String, ?> configuration, ConnectFactory connectFactory) {
 		ClassLoader platformClassLoader = null;
 		try {
 			Method getPlatformClassLoader = ClassLoader.class.getMethod("getPlatformClassLoader"); //$NON-NLS-1$
@@ -86,6 +88,7 @@ public class EquinoxContainer implements ThreadFactory, Runnable {
 				/* boot class loader */};
 		}
 		this.bootLoader = platformClassLoader;
+		this.connectFactory = connectFactory;
 		this.equinoxConfig = new EquinoxConfiguration(configuration, new HookRegistry(this));
 		this.logServices = new EquinoxLogServices(this.equinoxConfig);
 		this.equinoxConfig.logMessages(this.logServices);
@@ -131,6 +134,10 @@ public class EquinoxContainer implements ThreadFactory, Runnable {
 			supportRecursion &= hook.isProcessClassRecursionSupported();
 		}
 		isProcessClassRecursionSupportedByAll = supportRecursion;
+	}
+
+	public ConnectFactory getConnectFactory() {
+		return connectFactory;
 	}
 
 	public Storage getStorage() {
