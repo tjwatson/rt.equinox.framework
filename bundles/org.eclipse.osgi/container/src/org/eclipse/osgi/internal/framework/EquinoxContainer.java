@@ -13,10 +13,13 @@
  *******************************************************************************/
 package org.eclipse.osgi.internal.framework;
 
+import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.Method;
+import java.net.URL;
 import java.security.AccessController;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -92,6 +95,9 @@ public class EquinoxContainer implements ThreadFactory, Runnable {
 		this.equinoxConfig = new EquinoxConfiguration(configuration, new HookRegistry(this));
 		this.logServices = new EquinoxLogServices(this.equinoxConfig);
 		this.equinoxConfig.logMessages(this.logServices);
+
+		initConnectFactory(connectFactory, this.equinoxConfig);
+
 		this.equinoxConfig.getHookRegistry().initialize();
 		try {
 			this.storage = Storage.createStorage(this);
@@ -134,6 +140,17 @@ public class EquinoxContainer implements ThreadFactory, Runnable {
 			supportRecursion &= hook.isProcessClassRecursionSupported();
 		}
 		isProcessClassRecursionSupportedByAll = supportRecursion;
+	}
+
+	private static void initConnectFactory(ConnectFactory connectFactory, EquinoxConfiguration equinoxConfig) {
+		if (connectFactory == null) {
+			return;
+		}
+		URL configUrl = equinoxConfig.getEquinoxLocations().getConfigurationLocation().getURL();
+		final File fwkStore = new File(configUrl.getPath());
+		@SuppressWarnings({"rawtypes", "unchecked"})
+		Map<String, String> config = (Map) equinoxConfig.getInitialConfig();
+		connectFactory.initialize(fwkStore, Collections.unmodifiableMap(config));
 	}
 
 	public ConnectFactory getConnectFactory() {

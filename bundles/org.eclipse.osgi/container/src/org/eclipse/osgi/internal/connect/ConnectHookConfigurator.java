@@ -24,9 +24,7 @@ import java.net.URL;
 import java.net.URLConnection;
 import java.nio.file.Files;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -172,10 +170,6 @@ public class ConnectHookConfigurator implements HookConfigurator {
 		if (connectFactory == null) {
 			return;
 		}
-
-		@SuppressWarnings({"rawtypes", "unchecked"})
-		Map<String, String> config = (Map) hookRegistry.getConfiguration().getInitialConfig();
-		connectFactory.initialize(storage, Collections.unmodifiableMap(config));
 
 		hookRegistry.addClassLoaderHook(new ClassLoaderHook() {
 			@Override
