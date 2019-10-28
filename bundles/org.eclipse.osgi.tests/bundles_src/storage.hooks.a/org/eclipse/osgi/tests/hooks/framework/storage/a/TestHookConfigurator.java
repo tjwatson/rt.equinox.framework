@@ -39,7 +39,6 @@ import org.eclipse.osgi.storage.BundleInfo.Generation;
 import org.osgi.framework.BundleActivator;
 import org.osgi.framework.BundleContext;
 import org.osgi.framework.Constants;
-import org.osgi.framework.FrameworkUtil;
 import org.osgi.framework.Version;
 import org.osgi.framework.namespace.BundleNamespace;
 import org.osgi.framework.namespace.IdentityNamespace;
@@ -175,17 +174,14 @@ public class TestHookConfigurator implements HookConfigurator {
 			@Override
 			public BundleActivator createActivator() {
 				return new BundleActivator() {
-					TestHelper helper;
-
 					@Override
 					public void start(BundleContext context) throws Exception {
-						helper = new TestHelper(context.getBundle(Constants.SYSTEM_BUNDLE_LOCATION));
-						FrameworkUtil.addHelper(helper);
+						TestHelper.setBundle(context.getBundle(Constants.SYSTEM_BUNDLE_LOCATION));
 					}
 
 					@Override
 					public void stop(BundleContext context) throws Exception {
-						FrameworkUtil.removeHelper(helper);
+						TestHelper.setBundle(null);
 					}
 				};
 			}

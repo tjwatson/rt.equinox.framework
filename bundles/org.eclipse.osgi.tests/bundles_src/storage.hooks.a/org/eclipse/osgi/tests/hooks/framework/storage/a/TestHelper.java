@@ -14,17 +14,17 @@
 package org.eclipse.osgi.tests.hooks.framework.storage.a;
 
 import org.osgi.framework.Bundle;
-import org.osgi.framework.FrameworkUtil;
+import org.osgi.framework.connect.FrameworkUtilHelper;
 
-public class TestHelper implements FrameworkUtil.Helper {
-	final Bundle testBundle;
-
-	public TestHelper(Bundle testBundle) {
-		this.testBundle = testBundle;
-	}
+public class TestHelper implements FrameworkUtilHelper {
+	volatile static Bundle testBundle;
 
 	@Override
 	public Bundle getBundle(Class<?> classFromBundle) {
 		return testBundle;
+	}
+
+	public static void setBundle(Bundle testBundle) {
+		TestHelper.testBundle = testBundle;
 	}
 }
