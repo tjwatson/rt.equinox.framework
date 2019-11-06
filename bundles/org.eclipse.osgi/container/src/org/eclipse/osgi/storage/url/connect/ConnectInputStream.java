@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2004, 2012 IBM Corporation and others.
+ * Copyright (c) 2019 IBM Corporation and others.
  *
  * This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
@@ -11,8 +11,7 @@
  * Contributors:
  *     IBM Corporation - initial API and implementation
  *******************************************************************************/
-
-package org.eclipse.osgi.storage.url.reference;
+package org.eclipse.osgi.storage.url.connect;
 
 import java.io.File;
 import java.io.IOException;
@@ -20,16 +19,7 @@ import java.io.InputStream;
 import org.eclipse.osgi.storage.url.ContentProvider;
 import org.eclipse.osgi.storage.url.ContentProviderType;
 
-/**
- * InputStream subclass which provides a reference (via File) to the data
- * rather than allowing the input stream to be directly read.
- */
-public class ReferenceInputStream extends InputStream implements ContentProvider {
-	private final File reference;
-
-	public ReferenceInputStream(File reference) {
-		this.reference = reference;
-	}
+public class ConnectInputStream extends InputStream implements ContentProvider {
 
 	/* This method should not be called.
 	 */
@@ -38,13 +28,13 @@ public class ReferenceInputStream extends InputStream implements ContentProvider
 		throw new IOException();
 	}
 
-	@Override
 	public File getContent() {
-		return reference;
+		return null;
 	}
 
 	@Override
 	public ContentProviderType getContentProviderType() {
-		return ContentProviderType.REFERENCE_INPUTSTREAM;
+		return ContentProviderType.CONNECT_INPUTSTREAM;
 	}
+
 }
