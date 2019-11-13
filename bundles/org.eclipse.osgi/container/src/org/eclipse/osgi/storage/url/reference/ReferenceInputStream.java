@@ -17,7 +17,7 @@ package org.eclipse.osgi.storage.url.reference;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
-import org.eclipse.osgi.storage.url.ContentProvider;
+import org.eclipse.osgi.storage.ContentProvider;
 
 /**
  * InputStream subclass which provides a reference (via File) to the data

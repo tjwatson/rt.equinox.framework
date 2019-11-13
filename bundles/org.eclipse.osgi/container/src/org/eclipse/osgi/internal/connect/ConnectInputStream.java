@@ -11,14 +11,30 @@
  * Contributors:
  *     IBM Corporation - initial API and implementation
  *******************************************************************************/
-package org.eclipse.osgi.storage.url.connect;
+package org.eclipse.osgi.internal.connect;
 
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
-import org.eclipse.osgi.storage.url.ContentProvider;
+import java.net.URLConnection;
+import org.eclipse.osgi.storage.ContentProvider;
 
 public class ConnectInputStream extends InputStream implements ContentProvider {
+	static final ConnectInputStream INSTANCE = new ConnectInputStream();
+	static final URLConnection URL_CONNECTION_INSTANCE = new URLConnection(null) {
+		@Override
+		public void connect() throws IOException {
+			connected = true;
+		}
+
+		@Override
+		public InputStream getInputStream() throws IOException {
+			return INSTANCE;
+		}
+	};
+
+	private ConnectInputStream() {
+	}
 
 	/* This method should not be called.
 	 */

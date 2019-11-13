@@ -37,7 +37,7 @@ import org.eclipse.osgi.internal.hookregistry.ActivatorHookFactory;
 import org.eclipse.osgi.internal.hookregistry.HookRegistry;
 import org.eclipse.osgi.internal.messages.Msg;
 import org.eclipse.osgi.storage.BundleInfo.Generation;
-import org.eclipse.osgi.storage.url.ContentProvider.Type;
+import org.eclipse.osgi.storage.ContentProvider.Type;
 import org.eclipse.osgi.util.NLS;
 import org.osgi.framework.Bundle;
 import org.osgi.framework.BundleActivator;

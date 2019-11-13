@@ -11,9 +11,10 @@
  * Contributors:
  *     IBM Corporation - initial API and implementation
  *******************************************************************************/
-package org.eclipse.osgi.storage.url;
+package org.eclipse.osgi.storage;
 
 import java.io.File;
+import org.osgi.framework.BundleException;
 
 /**
  * A content provider is a marker interface that is used
@@ -35,8 +36,9 @@ public interface ContentProvider {
 	/**
 	 * A file of the content, may be {@code null}
 	 * @return the file, may be {@code null}
+	 * @throws BundleException 
 	 */
-	File getContent();
+	File getContent() throws BundleException;
 
 	/**
 	 * The type of content

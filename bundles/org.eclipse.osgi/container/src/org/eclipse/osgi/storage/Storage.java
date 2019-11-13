@@ -82,6 +82,7 @@ import org.eclipse.osgi.internal.permadmin.SecurityAdmin;
 import org.eclipse.osgi.internal.url.URLStreamHandlerFactoryImpl;
 import org.eclipse.osgi.service.datalocation.Location;
 import org.eclipse.osgi.storage.BundleInfo.Generation;
+import org.eclipse.osgi.storage.ContentProvider.Type;
 import org.eclipse.osgi.storage.bundlefile.BundleEntry;
 import org.eclipse.osgi.storage.bundlefile.BundleFile;
 import org.eclipse.osgi.storage.bundlefile.BundleFileWrapper;
@@ -90,8 +91,6 @@ import org.eclipse.osgi.storage.bundlefile.DirBundleFile;
 import org.eclipse.osgi.storage.bundlefile.MRUBundleFileList;
 import org.eclipse.osgi.storage.bundlefile.NestedDirBundleFile;
 import org.eclipse.osgi.storage.bundlefile.ZipBundleFile;
-import org.eclipse.osgi.storage.url.ContentProvider;
-import org.eclipse.osgi.storage.url.ContentProvider.Type;
 import org.eclipse.osgi.storage.url.reference.Handler;
 import org.eclipse.osgi.storagemanager.ManagedOutputStream;
 import org.eclipse.osgi.storagemanager.StorageManager;
@@ -694,13 +693,10 @@ public class Storage {
 			return (Generation) existingLocation.getCurrentRevision().getRevisionInfo();
 		}
 
-		Type contentType = Type.DEFAULT;
+		ContentProvider contentProvider = getContentProvider(in, sourceURL);
+		Type contentType = contentProvider.getType();
+		File staged = contentProvider.getContent();
 
-		if (in instanceof ContentProvider) {
-			contentType = ((ContentProvider) in).getType();
-		}
-
-		File staged = stageContent(in, sourceURL);
 		Generation generation = null;
 		try {
 			Long nextID = moduleDatabase.getAndIncrementNextId();
@@ -752,6 +748,24 @@ public class Storage {
 				generation.getBundleInfo().unlockGeneration(generation);
 			}
 		}
+	}
+
+	ContentProvider getContentProvider(final InputStream in, final URL sourceURL) {
+		if (in instanceof ContentProvider) {
+			return (ContentProvider) in;
+		}
+		return new ContentProvider() {
+
+			@Override
+			public Type getType() {
+				return Type.DEFAULT;
+			}
+
+			@Override
+			public File getContent() throws BundleException {
+				return stageContent(in, sourceURL);
+			}
+		};
 	}
 
 	private void setStorageHooks(Generation generation) throws BundleException {
@@ -916,12 +930,10 @@ public class Storage {
 			throw new BundleException("Error reading bundle content.", e); //$NON-NLS-1$
 		}
 
-		Type contentType = Type.DEFAULT;
+		ContentProvider contentProvider = getContentProvider(in, sourceURL);
+		Type contentType = contentProvider.getType();
+		File staged = contentProvider.getContent();
 
-		if (in instanceof ContentProvider) {
-			contentType = ((ContentProvider) in).getType();
-		}
-		File staged = stageContent(in, sourceURL);
 		ModuleRevision current = module.getCurrentRevision();
 		Generation currentGen = (Generation) current.getRevisionInfo();
 
@@ -1072,7 +1084,7 @@ public class Storage {
 		return result;
 	}
 
-	private File stageContent(final InputStream in, final URL sourceURL) throws BundleException {
+	File stageContent(final InputStream in, final URL sourceURL) throws BundleException {
 		if (System.getSecurityManager() == null)
 			return stageContent0(in, sourceURL);
 		try {
@@ -1092,11 +1104,6 @@ public class Storage {
 	File stageContent0(InputStream in, URL sourceURL) throws BundleException {
 		File outFile = null;
 		try {
-
-			if (in instanceof ContentProvider) {
-				return ((ContentProvider) in).getContent();
-			}
-
 			outFile = File.createTempFile(BUNDLE_FILE_NAME, ".tmp", childRoot); //$NON-NLS-1$
 			String protocol = sourceURL == null ? null : sourceURL.getProtocol();
 

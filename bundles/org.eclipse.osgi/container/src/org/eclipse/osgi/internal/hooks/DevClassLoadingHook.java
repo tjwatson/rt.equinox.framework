@@ -23,8 +23,8 @@ import org.eclipse.osgi.internal.loader.classpath.ClasspathEntry;
 import org.eclipse.osgi.internal.loader.classpath.ClasspathManager;
 import org.eclipse.osgi.internal.loader.classpath.FragmentClasspath;
 import org.eclipse.osgi.storage.BundleInfo.Generation;
+import org.eclipse.osgi.storage.ContentProvider.Type;
 import org.eclipse.osgi.storage.bundlefile.BundleFile;
-import org.eclipse.osgi.storage.url.ContentProvider.Type;
 
 public class DevClassLoadingHook extends ClassLoaderHook implements KeyedElement {
 	public static final String KEY = DevClassLoadingHook.class.getName();

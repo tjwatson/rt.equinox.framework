@@ -24,7 +24,6 @@ import org.eclipse.osgi.container.Module;
 import org.eclipse.osgi.container.ModuleContainerAdaptor.ModuleEvent;
 import org.eclipse.osgi.container.ModuleRevisionBuilder;
 import org.eclipse.osgi.container.builders.OSGiManifestBuilderFactory;
-import org.eclipse.osgi.internal.connect.ConnectBundleFileFactory.ConnectBundleFileWrapper;
 import org.eclipse.osgi.internal.framework.EquinoxConfiguration;
 import org.eclipse.osgi.internal.framework.EquinoxContainer.ConnectModules;
 import org.eclipse.osgi.internal.hookregistry.ActivatorHookFactory;
@@ -38,7 +37,6 @@ import org.eclipse.osgi.internal.loader.ModuleClassLoader;
 import org.eclipse.osgi.storage.BundleInfo.Generation;
 import org.eclipse.osgi.storage.bundlefile.BundleFile;
 import org.eclipse.osgi.storage.bundlefile.BundleFileWrapperChain;
-import org.eclipse.osgi.storage.url.connect.ConnectInputStream;
 import org.osgi.framework.BundleActivator;
 import org.osgi.framework.BundleContext;
 import org.osgi.framework.BundleException;
@@ -108,16 +106,7 @@ public class ConnectHookConfigurator implements HookConfigurator {
 				}
 				ConnectModule m = connectModules.getConnectModule(location);
 				if (m != null) {
-					return new URLConnection(null) {
-						@Override
-						public void connect() throws IOException {
-							connected = true;
-						}
-
-						public InputStream getInputStream() throws IOException {
-							return new ConnectInputStream();
-						}
-					};
+					return ConnectInputStream.URL_CONNECTION_INSTANCE;
 				}
 				return null;
 			}
@@ -134,18 +123,20 @@ public class ConnectHookConfigurator implements HookConfigurator {
 				if (m != null) {
 					BundleFile bundlefile = generation.getBundleFile();
 					if (bundlefile instanceof BundleFileWrapperChain) {
-						ConnectBundleFileWrapper content = ((BundleFileWrapperChain) bundlefile).getWrappedType(ConnectBundleFileWrapper.class);
-						if (content != null) {
-							return content.getConnectBundleFile().getClassLoader().map((l) //
-							-> new DelegatingConnectClassLoader(parent, configuration, delegate, generation, l)).orElse(null);
+						BundleFileWrapperChain chain = (BundleFileWrapperChain) bundlefile;
+						while (chain.getNext() != null) {
+							chain = chain.getNext();
 						}
+						bundlefile = chain.getBundleFile();
+					}
+					if (bundlefile instanceof ConnectBundleFile) {
+						return ((ConnectBundleFile) bundlefile).getClassLoader().map((l) //
+						-> new DelegatingConnectClassLoader(parent, configuration, delegate, generation, l)).orElse(null);
 					}
 				}
 				return null;
 			}
 		});
-
-		hookRegistry.addBundleFileWrapperFactoryHook(new ConnectBundleFileFactory());
 
 		hookRegistry.addActivatorHookFactory(new ActivatorHookFactory() {
 

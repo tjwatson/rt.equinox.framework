@@ -37,11 +37,11 @@ import org.eclipse.osgi.internal.loader.classpath.ClasspathEntry;
 import org.eclipse.osgi.internal.loader.classpath.ClasspathManager;
 import org.eclipse.osgi.internal.loader.classpath.FragmentClasspath;
 import org.eclipse.osgi.storage.BundleInfo.Generation;
+import org.eclipse.osgi.storage.ContentProvider.Type;
 import org.eclipse.osgi.storage.bundlefile.BundleEntry;
 import org.eclipse.osgi.storage.bundlefile.BundleFile;
 import org.eclipse.osgi.storage.bundlefile.BundleFileWrapper;
 import org.eclipse.osgi.storage.bundlefile.BundleFileWrapperChain;
-import org.eclipse.osgi.storage.url.ContentProvider.Type;
 
 public class CDSHookImpls extends ClassLoaderHook implements BundleFileWrapperFactoryHook {
 	private static SharedClassHelperFactory factory = Shared.getSharedClassHelperFactory();
