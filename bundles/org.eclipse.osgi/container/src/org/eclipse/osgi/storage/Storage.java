@@ -91,7 +91,7 @@ import org.eclipse.osgi.storage.bundlefile.MRUBundleFileList;
 import org.eclipse.osgi.storage.bundlefile.NestedDirBundleFile;
 import org.eclipse.osgi.storage.bundlefile.ZipBundleFile;
 import org.eclipse.osgi.storage.url.ContentProvider;
-import org.eclipse.osgi.storage.url.ContentProviderType;
+import org.eclipse.osgi.storage.url.ContentProvider.Type;
 import org.eclipse.osgi.storage.url.reference.Handler;
 import org.eclipse.osgi.storagemanager.ManagedOutputStream;
 import org.eclipse.osgi.storagemanager.StorageManager;
@@ -390,7 +390,7 @@ public class Storage {
 				newGeneration = info.createGeneration();
 
 				File contentFile = getSystemContent();
-				newGeneration.setContent(contentFile, ContentProviderType.DEFAULT);
+				newGeneration.setContent(contentFile, Type.DEFAULT);
 
 				// First we must make sure the VM profile has been loaded
 				loadVMProfile(newGeneration);
@@ -416,7 +416,7 @@ public class Storage {
 					File contentFile = currentGeneration.getContent();
 					if (systemNeedsUpdate(contentFile, currentRevision, currentGeneration, extraCapabilities, extraExports, cachedInfo)) {
 						newGeneration = currentGeneration.getBundleInfo().createGeneration();
-						newGeneration.setContent(contentFile, ContentProviderType.DEFAULT);
+						newGeneration.setContent(contentFile, Type.DEFAULT);
 						ModuleRevisionBuilder newBuilder = getBuilder(newGeneration, extraCapabilities, extraExports);
 						moduleContainer.update(systemModule, newBuilder, newGeneration);
 						moduleContainer.refresh(Collections.singleton(systemModule));
@@ -693,12 +693,10 @@ public class Storage {
 			return (Generation) existingLocation.getCurrentRevision().getRevisionInfo();
 		}
 
-		ContentProviderType contentProviderType;
+		Type contentType = Type.DEFAULT;
 
 		if (in instanceof ContentProvider) {
-			contentProviderType = ((ContentProvider) in).getContentProviderType();
-		} else {
-			contentProviderType = ContentProviderType.DEFAULT;
+			contentType = ((ContentProvider) in).getType();
 		}
 
 		File staged = stageContent(in, sourceURL);
@@ -708,8 +706,8 @@ public class Storage {
 			BundleInfo info = new BundleInfo(this, nextID, bundleLocation, 0);
 			generation = info.createGeneration();
 
-			File contentFile = getContentFile(staged, contentProviderType, nextID, generation.getGenerationId());
-			generation.setContent(contentFile, contentProviderType);
+			File contentFile = getContentFile(staged, contentType, nextID, generation.getGenerationId());
+			generation.setContent(contentFile, contentType);
 			// Check that we can open the bundle file
 			generation.getBundleFile().open();
 			setStorageHooks(generation);
@@ -725,7 +723,7 @@ public class Storage {
 			}
 			return generation;
 		} catch (Throwable t) {
-			if (contentProviderType == ContentProviderType.DEFAULT) {
+			if (contentType == Type.DEFAULT) {
 				try {
 					delete(staged);
 				} catch (IOException e) {
@@ -895,7 +893,7 @@ public class Storage {
 		if (content == null) {
 			return;
 		}
-		String spec = (currentGen.getContentProviderType() == ContentProviderType.REFERENCE_INPUTSTREAM ? "reference:" : "") + content.toURI().toString(); //$NON-NLS-1$ //$NON-NLS-2$
+		String spec = (currentGen.getContentType() == Type.REFERENCE ? "reference:" : "") + content.toURI().toString(); //$NON-NLS-1$ //$NON-NLS-2$
 		URLConnection contentConn;
 		try {
 			contentConn = getContentConnection(spec);
@@ -917,12 +915,10 @@ public class Storage {
 			throw new BundleException("Error reading bundle content.", e); //$NON-NLS-1$
 		}
 
-		ContentProviderType contentProviderType;
+		Type contentType = Type.DEFAULT;
 
 		if (in instanceof ContentProvider) {
-			contentProviderType = ((ContentProvider) in).getContentProviderType();
-		} else {
-			contentProviderType = ContentProviderType.DEFAULT;
+			contentType = ((ContentProvider) in).getType();
 		}
 		File staged = stageContent(in, sourceURL);
 		ModuleRevision current = module.getCurrentRevision();
@@ -932,8 +928,8 @@ public class Storage {
 		Generation newGen = bundleInfo.createGeneration();
 
 		try {
-			File contentFile = getContentFile(staged, contentProviderType, bundleInfo.getBundleId(), newGen.getGenerationId());
-			newGen.setContent(contentFile, contentProviderType);
+			File contentFile = getContentFile(staged, contentType, bundleInfo.getBundleId(), newGen.getGenerationId());
+			newGen.setContent(contentFile, contentType);
 			// Check that we can open the bundle file
 			newGen.getBundleFile().open();
 			setStorageHooks(newGen);
@@ -941,7 +937,7 @@ public class Storage {
 			ModuleRevisionBuilder builder = getBuilder(newGen);
 			moduleContainer.update(module, builder, newGen);
 		} catch (Throwable t) {
-			if (contentProviderType == ContentProviderType.DEFAULT) {
+			if (contentType == Type.DEFAULT) {
 				try {
 					delete(staged);
 				} catch (IOException e) {
@@ -967,14 +963,14 @@ public class Storage {
 		return newGen;
 	}
 
-	private File getContentFile(final File staged, ContentProviderType contentProviderType, final long bundleID, final long generationID) throws BundleException {
+	private File getContentFile(final File staged, Type contentType, final long bundleID, final long generationID) throws BundleException {
 		if (System.getSecurityManager() == null)
-			return getContentFile0(staged, contentProviderType, bundleID, generationID);
+			return getContentFile0(staged, contentType, bundleID, generationID);
 		try {
 			return AccessController.doPrivileged(new PrivilegedExceptionAction<File>() {
 				@Override
 				public File run() throws BundleException {
-					return getContentFile0(staged, contentProviderType, bundleID, generationID);
+					return getContentFile0(staged, contentType, bundleID, generationID);
 				}
 			});
 		} catch (PrivilegedActionException e) {
@@ -984,10 +980,10 @@ public class Storage {
 		}
 	}
 
-	File getContentFile0(File staged, ContentProviderType contentProviderType, long bundleID, long generationID) throws BundleException {
+	File getContentFile0(File staged, Type contentType, long bundleID, long generationID) throws BundleException {
 		File contentFile = staged;
 
-		if (contentProviderType == ContentProviderType.DEFAULT) {
+		if (contentType == Type.DEFAULT) {
 			File generationRoot = new File(childRoot, bundleID + "/" + generationID); //$NON-NLS-1$
 			generationRoot.mkdirs();
 			if (!generationRoot.isDirectory()) {
@@ -1365,14 +1361,14 @@ public class Storage {
 			out.writeLong(bundleInfo.getNextGenerationId());
 			out.writeLong(generation.getGenerationId());
 			out.writeBoolean(generation.isDirectory());
-			ContentProviderType contentProviderType = generation.getContentProviderType();
-			out.writeInt(contentProviderType.ordinal());
+			Type contentType = generation.getContentType();
+			out.writeInt(contentType.ordinal());
 			out.writeBoolean(generation.hasPackageInfo());
-			if (bundleInfo.getBundleId() == 0 || contentProviderType == ContentProviderType.CONNECT_INPUTSTREAM) {
+			if (bundleInfo.getBundleId() == 0 || contentType == Type.CONNECT) {
 				// just write empty string for system bundle content and connect content in this case
 				out.writeUTF(""); //$NON-NLS-1$
 			} else {
-				if (contentProviderType == ContentProviderType.REFERENCE_INPUTSTREAM) {
+				if (contentType == Type.REFERENCE) {
 					// make reference installs relative to the install path
 					out.writeUTF(new FilePath(installPath).makeRelative(new FilePath(generation.getContent().getAbsolutePath())));
 				} else {
@@ -1472,20 +1468,20 @@ public class Storage {
 		int numInfos = in.readInt();
 		Map<Long, Generation> result = new HashMap<>(numInfos);
 		List<Generation> generations = new ArrayList<>(numInfos);
-		ContentProviderType[] contentProviderTypes = ContentProviderType.values();
+		Type[] contentTypes = Type.values();
 		for (int i = 0; i < numInfos; i++) {
 			long infoId = in.readLong();
 			String infoLocation = ObjectPool.intern(in.readUTF());
 			long nextGenId = in.readLong();
 			long generationId = in.readLong();
 			boolean isDirectory = in.readBoolean();
-			int contentProviderOrdinal = ContentProviderType.DEFAULT.ordinal();
+			int typeOrdinal = Type.DEFAULT.ordinal();
 
 			if (version >= CACHED_SYSTEM_CAPS_VERION) {
-				contentProviderOrdinal = in.readInt();
+				typeOrdinal = in.readInt();
 			} else {
 				if (in.readBoolean()) {
-					contentProviderOrdinal = ContentProviderType.REFERENCE_INPUTSTREAM.ordinal();
+					typeOrdinal = Type.REFERENCE.ordinal();
 				}
 			}
 
@@ -1512,11 +1508,11 @@ public class Storage {
 				// Note that we do not do any checking for absolute paths with
 				// the system bundle.  We always take the content as discovered
 				// by getSystemContent()
-			} else if (contentProviderOrdinal != ContentProviderType.CONNECT_INPUTSTREAM.ordinal()) {
+			} else if (typeOrdinal != Type.CONNECT.ordinal()) {
 				content = new File(contentPath);
 				if (!content.isAbsolute()) {
 					// make sure it has the absolute location instead
-					if (contentProviderOrdinal == ContentProviderType.REFERENCE_INPUTSTREAM.ordinal()) {
+					if (typeOrdinal == Type.REFERENCE.ordinal()) {
 						// reference installs are relative to the installPath
 						content = new File(installPath, contentPath);
 					} else {
@@ -1527,7 +1523,7 @@ public class Storage {
 			}
 
 			BundleInfo info = new BundleInfo(this, infoId, infoLocation, nextGenId);
-			Generation generation = info.restoreGeneration(generationId, content, isDirectory, contentProviderTypes[contentProviderOrdinal], hasPackageInfo, cachedHeaders, lastModified, isMRJar);
+			Generation generation = info.restoreGeneration(generationId, content, isDirectory, contentTypes[typeOrdinal], hasPackageInfo, cachedHeaders, lastModified, isMRJar);
 			result.put(infoId, generation);
 			generations.add(generation);
 		}

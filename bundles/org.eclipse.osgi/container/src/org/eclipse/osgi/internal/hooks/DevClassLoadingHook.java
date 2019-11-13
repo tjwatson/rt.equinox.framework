@@ -24,7 +24,7 @@ import org.eclipse.osgi.internal.loader.classpath.ClasspathManager;
 import org.eclipse.osgi.internal.loader.classpath.FragmentClasspath;
 import org.eclipse.osgi.storage.BundleInfo.Generation;
 import org.eclipse.osgi.storage.bundlefile.BundleFile;
-import org.eclipse.osgi.storage.url.ContentProviderType;
+import org.eclipse.osgi.storage.url.ContentProvider.Type;
 
 public class DevClassLoadingHook extends ClassLoaderHook implements KeyedElement {
 	public static final String KEY = DevClassLoadingHook.class.getName();
@@ -40,7 +40,7 @@ public class DevClassLoadingHook extends ClassLoaderHook implements KeyedElement
 	@Override
 	public boolean addClassPathEntry(ArrayList<ClasspathEntry> cpEntries, String cp, ClasspathManager hostmanager, Generation sourceGeneration) {
 		// if this is a connect bundle just ignore
-		if (sourceGeneration.getContentProviderType() == ContentProviderType.CONNECT_INPUTSTREAM) {
+		if (sourceGeneration.getContentType() == Type.CONNECT) {
 			return false;
 		}
 		// first check that we are in devmode for this sourcedata

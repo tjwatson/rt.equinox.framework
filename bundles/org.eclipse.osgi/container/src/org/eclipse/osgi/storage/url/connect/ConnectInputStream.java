@@ -17,7 +17,6 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import org.eclipse.osgi.storage.url.ContentProvider;
-import org.eclipse.osgi.storage.url.ContentProviderType;
 
 public class ConnectInputStream extends InputStream implements ContentProvider {
 
@@ -33,8 +32,8 @@ public class ConnectInputStream extends InputStream implements ContentProvider {
 	}
 
 	@Override
-	public ContentProviderType getContentProviderType() {
-		return ContentProviderType.CONNECT_INPUTSTREAM;
+	public Type getType() {
+		return Type.CONNECT;
 	}
 
 }

@@ -37,7 +37,7 @@ import org.eclipse.osgi.internal.hookregistry.ActivatorHookFactory;
 import org.eclipse.osgi.internal.hookregistry.HookRegistry;
 import org.eclipse.osgi.internal.messages.Msg;
 import org.eclipse.osgi.storage.BundleInfo.Generation;
-import org.eclipse.osgi.storage.url.ContentProviderType;
+import org.eclipse.osgi.storage.url.ContentProvider.Type;
 import org.eclipse.osgi.util.NLS;
 import org.osgi.framework.Bundle;
 import org.osgi.framework.BundleActivator;
@@ -160,7 +160,7 @@ public class FrameworkExtensionInstaller {
 	 */
 	private File[] getExtensionFiles(ModuleRevision revision) {
 		Generation generation = (Generation) revision.getRevisionInfo();
-		if (generation.getContentProviderType() == ContentProviderType.CONNECT_INPUTSTREAM) {
+		if (generation.getContentType() == Type.CONNECT) {
 			// Don't do anything for connect bundles
 			return null;
 		}

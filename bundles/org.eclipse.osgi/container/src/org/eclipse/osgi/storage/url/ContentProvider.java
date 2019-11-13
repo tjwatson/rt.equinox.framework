@@ -15,9 +15,32 @@ package org.eclipse.osgi.storage.url;
 
 import java.io.File;
 
+/**
+ * A content provider is a marker interface that is used
+ * but the framework internally to handle different kinds of
+ * bundles.  For example, reference installed bundles or
+ * connect bundles.  The type of the provider indicates
+ * how the framework will handle the install or update
+ * of the bundle content.
+ */
 public interface ContentProvider {
 
+	/**
+	 * The type of the provided content
+	 */
+	public enum Type {
+		REFERENCE, CONNECT, DEFAULT;
+	}
+
+	/**
+	 * A file of the content, may be {@code null}
+	 * @return the file, may be {@code null}
+	 */
 	File getContent();
 
-	ContentProviderType getContentProviderType();
+	/**
+	 * The type of content
+	 * @return the type of content
+	 */
+	Type getType();
 }
