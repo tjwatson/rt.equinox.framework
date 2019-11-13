@@ -41,6 +41,7 @@ import org.eclipse.osgi.storage.bundlefile.BundleEntry;
 import org.eclipse.osgi.storage.bundlefile.BundleFile;
 import org.eclipse.osgi.storage.bundlefile.BundleFileWrapper;
 import org.eclipse.osgi.storage.bundlefile.BundleFileWrapperChain;
+import org.eclipse.osgi.storage.url.ContentProviderType;
 
 public class CDSHookImpls extends ClassLoaderHook implements BundleFileWrapperFactoryHook {
 	private static SharedClassHelperFactory factory = Shared.getSharedClassHelperFactory();
@@ -192,6 +193,9 @@ public class CDSHookImpls extends ClassLoaderHook implements BundleFileWrapperFa
 	//////////////// BundleFileWrapperFactoryHook //////////////
 	@Override
 	public BundleFileWrapper wrapBundleFile(BundleFile bundleFile, Generation generation, boolean base) {
+		if (generation.getContentProviderType() == ContentProviderType.CONNECT_INPUTSTREAM) {
+			return null;
+		}
 		// wrap the real bundle file for purposes of loading shared classes.
 		CDSBundleFile newBundleFile;
 		if (!base && generation.getBundleInfo().getBundleId() != 0) {
