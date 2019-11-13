@@ -137,8 +137,9 @@ public class Storage {
 	}
 
 	public static final int VERSION = 6;
+	private static final int CONTENT_TYPE_VERSION = 6;
+	private static final int CACHED_SYSTEM_CAPS_VERION = 5;
 	private static final int MR_JAR_VERSION = 4;
-	private static final int CACHED_SYSTEM_CAPS_VERION = 6;
 	private static final int LOWEST_VERSION_SUPPORTED = 3;
 	public static final String BUNDLE_DATA_DIR = "data"; //$NON-NLS-1$
 	public static final String BUNDLE_FILE_NAME = "bundleFile"; //$NON-NLS-1$
@@ -1475,13 +1476,13 @@ public class Storage {
 			long nextGenId = in.readLong();
 			long generationId = in.readLong();
 			boolean isDirectory = in.readBoolean();
-			int typeOrdinal = Type.DEFAULT.ordinal();
 
-			if (version >= CACHED_SYSTEM_CAPS_VERION) {
-				typeOrdinal = in.readInt();
+			Type contentType = Type.DEFAULT;
+			if (version >= CONTENT_TYPE_VERSION) {
+				contentType = contentTypes[in.readInt()];
 			} else {
 				if (in.readBoolean()) {
-					typeOrdinal = Type.REFERENCE.ordinal();
+					contentType = Type.REFERENCE;
 				}
 			}
 
@@ -1508,22 +1509,25 @@ public class Storage {
 				// Note that we do not do any checking for absolute paths with
 				// the system bundle.  We always take the content as discovered
 				// by getSystemContent()
-			} else if (typeOrdinal != Type.CONNECT.ordinal()) {
+			} else if (contentType != Type.CONNECT) {
 				content = new File(contentPath);
 				if (!content.isAbsolute()) {
 					// make sure it has the absolute location instead
-					if (typeOrdinal == Type.REFERENCE.ordinal()) {
-						// reference installs are relative to the installPath
-						content = new File(installPath, contentPath);
-					} else {
-						// normal installs are relative to the storage area
-						content = getFile(contentPath, true);
+					switch (contentType) {
+						case REFERENCE :
+							// reference installs are relative to the installPath
+							content = new File(installPath, contentPath);
+							break;
+						case DEFAULT :
+							// normal installs are relative to the storage area
+							content = getFile(contentPath, true);
+							break;
 					}
 				}
 			}
 
 			BundleInfo info = new BundleInfo(this, infoId, infoLocation, nextGenId);
-			Generation generation = info.restoreGeneration(generationId, content, isDirectory, contentTypes[typeOrdinal], hasPackageInfo, cachedHeaders, lastModified, isMRJar);
+			Generation generation = info.restoreGeneration(generationId, content, isDirectory, contentType, hasPackageInfo, cachedHeaders, lastModified, isMRJar);
 			result.put(infoId, generation);
 			generations.add(generation);
 		}
