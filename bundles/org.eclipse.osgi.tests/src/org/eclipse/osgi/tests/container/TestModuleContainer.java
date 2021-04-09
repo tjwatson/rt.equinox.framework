@@ -3927,6 +3927,101 @@ public class TestModuleContainer extends AbstractTest {
 		assertEquals("Wrong last package wire.", dynamicImport2, pkgWires.get(pkgWires.size() - 1));
 	}
 
+	@Test
+	public void testPerformanceWiringLookup() throws BundleException {
+		int testNum = 10;
+		String packages = createExportImportPackages(testNum);
+		String capabilities = createCapabilities(testNum);
+		String requirements = createRequirements(testNum);
+		DummyContainerAdaptor adaptor = createDummyAdaptor();
+		ModuleContainer container = adaptor.getContainer();
+		Map<String, String> manifestA = new HashMap<>();
+		manifestA.put(Constants.BUNDLE_MANIFESTVERSION, "2");
+		manifestA.put(Constants.BUNDLE_SYMBOLICNAME, "a");
+		manifestA.put(Constants.BUNDLE_VERSION, "1");
+		manifestA.put(Constants.EXPORT_PACKAGE, packages);
+		manifestA.put(Constants.PROVIDE_CAPABILITY, capabilities);
+		Module moduleA = installDummyModule(manifestA, "a", container);
+
+		Map<String, String> manifestB = new HashMap<>();
+		manifestB.put(Constants.BUNDLE_MANIFESTVERSION, "2");
+		manifestB.put(Constants.BUNDLE_SYMBOLICNAME, "b");
+		manifestB.put(Constants.BUNDLE_VERSION, "1");
+		manifestB.put(Constants.IMPORT_PACKAGE, packages);
+		manifestB.put(Constants.REQUIRE_CAPABILITY, requirements);
+		Module moduleB = installDummyModule(manifestB, "b", container);
+
+		container.resolve(Arrays.asList(moduleA, moduleB), false);
+
+		assertEquals("Wrong state for moduleA.", State.RESOLVED, moduleA.getState());
+		assertEquals("Wrong state for moduleB.", State.RESOLVED, moduleB.getState());
+
+		ModuleWiring wiringA = moduleA.getCurrentRevision().getWiring();
+		ModuleWiring wiringB = moduleB.getCurrentRevision().getWiring();
+
+		assertEquals("Wrong number of package capabilities", testNum,
+				wiringA.getModuleCapabilities(PackageNamespace.PACKAGE_NAMESPACE).size());
+		assertEquals("Wrong number of generic capabilities", testNum,
+				wiringA.getProvidedModuleWires("capability.namespace").size());
+
+		assertEquals("Wrong number of package requirements", testNum,
+				wiringB.getModuleRequirements(PackageNamespace.PACKAGE_NAMESPACE).size());
+		assertEquals("Wrong number of generic capabilities", testNum,
+				wiringB.getRequiredModuleWires("capability.namespace").size());
+
+		long totalTime = 0;
+		int numIterations = 10;
+		for (int j = 0; j < numIterations; j++) {
+			long startTime = System.nanoTime();
+			for (int i = 0; i < 100000; i++) {
+				wiringA.getModuleCapabilities(PackageNamespace.PACKAGE_NAMESPACE);
+				wiringA.getProvidedModuleWires("capability.namespace");
+
+				wiringB.getModuleRequirements(PackageNamespace.PACKAGE_NAMESPACE);
+				wiringB.getRequiredModuleWires("capability.namespace");
+			}
+			long iterationTime = System.nanoTime() - startTime;
+			System.out.println("ITERATION - " + j + ": " + TimeUnit.NANOSECONDS.toMillis(iterationTime));
+			totalTime += iterationTime;
+		}
+		System.out.println("TOTAL: " + TimeUnit.NANOSECONDS.toMillis(totalTime));
+		System.out.println("AVERAGE: " + TimeUnit.NANOSECONDS.toMillis(totalTime / numIterations));
+	}
+
+	private String createCapabilities(int numCapabilities) {
+		StringBuilder capabilities = new StringBuilder();
+		for (int i = 0; i < numCapabilities; i++) {
+			if (i != 0) {
+				capabilities.append(',');
+			}
+			capabilities.append("capability.namespace; attr=" + i);
+		}
+		return capabilities.toString();
+	}
+
+	private String createRequirements(int numRequirements) {
+		StringBuilder requirements = new StringBuilder();
+		for (int i = 0; i < numRequirements; i++) {
+			if (i != 0) {
+				requirements.append(',');
+			}
+			requirements.append("capability.namespace; filter:=\"(attr=" + i + ")\"");
+		}
+		return requirements.toString();
+	}
+
+	private static String createExportImportPackages(int numExports) {
+		StringBuilder packages = new StringBuilder();
+
+		for (int i = 0; i < numExports; i++) {
+			if (i != 0) {
+				packages.append(',');
+			}
+			packages.append("pkg.name" + i);
+		}
+		return packages.toString();
+	}
+
 	private static void assertWires(List<ModuleWire> required, List<ModuleWire>... provided) {
 		for (ModuleWire requiredWire : required) {
 			for (List<ModuleWire> providedList : provided) {
